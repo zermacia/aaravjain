@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -20,13 +21,32 @@ canvas{display:block}
   align-items:center;
   justify-content:space-between;
   padding:0 18px;
-  background:rgba(20,0,0,0.55);
-  border-bottom:1px solid rgba(255,80,80,0.25);
+  background:rgba(20,0,0,0.75);
+  border-bottom:1px solid rgba(255,80,80,0.35);
   backdrop-filter:blur(6px);
+  z-index:10;
 }
-#timer{ font-size:22px; color:#ff5555; text-shadow:0 0 12px rgba(255,80,80,.6); }
-#controls{ font-size:13px; opacity:.75; text-align:center; }
-#score{ font-size:15px; opacity:.9; }
+
+#timer{
+  font-size:22px;
+  color:#ff5555;
+  text-shadow:0 0 12px rgba(255,80,80,.6);
+}
+
+#controls{
+  font-size:13px;
+  opacity:1;
+  color:#ffcccc;
+  text-shadow:0 0 8px rgba(255,80,80,.4);
+  text-align:center;
+}
+
+#score{
+  font-size:15px;
+  opacity:1;
+  color:#ffffff;
+  text-shadow:0 0 10px rgba(255,80,80,.5);
+}
 
 #winner{
   position:fixed;
@@ -56,11 +76,13 @@ canvas{display:block}
 </style>
 </head>
 <body>
+
 <div id="header">
   <div id="timer"></div>
   <div id="controls">AARAV: WASD + F &nbsp; | &nbsp; JAIN: ARROWS + J</div>
   <div id="score"></div>
 </div>
+
 <div id="winner"></div>
 <button id="restart">RESTART</button>
 <canvas id="c"></canvas>
@@ -204,7 +226,6 @@ function updateBullets(t){
     }
     if(b.x<0||b.y<80||b.x>c.width||b.y>c.height){ bullets.splice(i,1); continue; }
 
-    // energy ball
     let grad = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,6);
     grad.addColorStop(0,"#ffffff");
     grad.addColorStop(0.4,"#ff9999");
@@ -227,7 +248,6 @@ function updateTimer(t){
     scores[w.name]++;
     winner.textContent=w.name.toUpperCase()+" WINS";
     restart.style.display="block";
-    // generate multiple win texts
     winTexts=[];
     for(let i=0;i<12;i++){
       winTexts.push({
@@ -271,7 +291,13 @@ function drawRGBText(text,x,y){
   ctx.fillStyle="rgba(0,200,255,0.6)"; ctx.fillText(text,x-22-2,y+6);
 }
 
-function drawScreenRGB(t){ if(t>glitchUntil) return; ctx.globalAlpha=0.06; ctx.drawImage(c,2,0); ctx.drawImage(c,-2,0); ctx.globalAlpha=1; }
+function drawScreenRGB(t){
+  if(t>glitchUntil) return;
+  ctx.globalAlpha=0.06;
+  ctx.drawImage(c,2,0);
+  ctx.drawImage(c,-2,0);
+  ctx.globalAlpha=1;
+}
 
 /* ---------- WIN TEXTS ---------- */
 function drawWinTexts(t){
@@ -299,7 +325,9 @@ function drawParticles(){
     p.x+=(p.bx-p.x)*0.01; p.y+=(p.by-p.y)*0.01;
     const glow=Math.min(1,Math.hypot(p.vx,p.vy)*2);
     ctx.fillStyle=`rgba(255,0,0,${0.12+glow*0.25})`;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r+glow*1.5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r+glow*1.5,0,Math.PI*2);
+    ctx.fill();
   }
 }
 
@@ -311,4 +339,3 @@ function drawGrid(){
 </script>
 </body>
 </html>
-
