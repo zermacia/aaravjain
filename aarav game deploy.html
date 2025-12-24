@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Terminal Tag</title>
+<link href="https://fonts.cdnfonts.com/css/satoshi" rel="stylesheet">
+<style>
+html,body{
+  margin:0;
+  background:#050000;
+  overflow:hidden;
+  font-family:'Satoshi', monospace;
+}
+canvas{display:block}
+
+#header{
+  position:fixed;
+  top:0; left:0; right:0;
+  height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 18px;
+  background:rgba(20,0,0,0.55);
+  border-bottom:1px solid rgba(255,80,80,0.25);
+  backdrop-filter:blur(6px);
+}
+#timer{ font-size:22px; color:#ff5555; text-shadow:0 0 12px rgba(255,80,80,.6); }
+#controls{ font-size:13px; opacity:.75; text-align:center; }
+#score{ font-size:15px; opacity:.9; }
+
+#winner{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:76px;
+  color:#ff3333;
+  text-shadow:0 0 60px rgba(255,0,0,.85);
+  pointer-events:none;
+}
+#restart{
+  position:fixed;
+  top:64%;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 26px;
+  font-size:16px;
+  background:#120000;
+  border:1px solid #ff4444;
+  color:#ff5555;
+  cursor:pointer;
+  display:none;
+  box-shadow:0 0 20px rgba(255,0,0,.6);
+}
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="timer"></div>
+  <div id="controls">AARAV: WASD + F &nbsp; | &nbsp; JAIN: ARROWS + J</div>
+  <div id="score"></div>
+</div>
+<div id="winner"></div>
+<button id="restart">RESTART</button>
+<canvas id="c"></canvas>
+
+<script>
+const c=document.getElementById("c");
+const ctx=c.getContext("2d");
+resize(); onresize=resize;
+function resize(){c.width=innerWidth;c.height=innerHeight;}
+
+const keys={};
+onkeydown=e=>keys[e.key]=true;
+onkeyup=e=>keys[e.key]=false;
+
+/* ---------- PLAYERS ---------- */
+function Player(x,y,name,controls){
+  return {x,y,px:x,py:y,name,controls,speed:4.6,slowUntil:0,lastShot:0};
+}
+let p1,p2,itPlayer;
+let bullets=[];
+let gameStart,gameOver=false;
+let tagCooldownUntil=0;
+let glitchUntil=0;
+let winFlash=0;
+let shakeUntil=0;
+let shakeIntensity=0;
+
+const ROUND_TIME=30000;
+const scores={aarav:0,jain:0};
+
+/* ---------- PARTICLES ---------- */
+const particles=Array.from({length:90},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:0,vy:0,bx:0,by:0,r:2+Math.random()*3}));
+particles.forEach(p=>{p.bx=p.x;p.by=p.y;});
+
+/* ---------- WIN TEXTS ---------- */
+let winTexts=[];
+
+/* ---------- INIT ---------- */
+function startGame(){
+  p1=new Player(220,340,"aarav","wasd");
+  p2=new Player(640,340,"jain","arrows");
+  itPlayer=Math.random()<.5?p1:p2;
+  bullets=[];
+  gameStart=performance.now();
+  gameOver=false;
+  tagCooldownUntil=0;
+  glitchUntil=0;
+  shakeUntil=0;
+  winFlash=0;
+  winTexts=[];
+  winner.textContent="";
+  restart.style.display="none";
+}
+startGame();
+restart.onclick=startGame;
+
+/* ---------- LOOP ---------- */
+function loop(t){
+  let shakeX=0,shakeY=0;
+  if(t<shakeUntil){
+    shakeX=(Math.random()-0.5)*shakeIntensity;
+    shakeY=(Math.random()-0.5)*shakeIntensity;
+  }
+  ctx.save();
+  ctx.translate(shakeX,shakeY);
+
+  ctx.fillStyle="#050000";
+  ctx.fillRect(0,0,c.width,c.height);
+
+  drawGrid();
+  drawParticles();
+
+  if(!gameOver){
+    updatePlayer(p1,t);
+    updatePlayer(p2,t);
+    updateBullets(t);
+    checkTag(t);
+    updateTimer(t);
+  }
+
+  drawPlayers(t);
+  drawScreenRGB(t);
+  drawWinTexts(t);
+
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- GAME LOGIC ---------- */
+function updatePlayer(p,t){
+  p.px=p.x;p.py=p.y;
+  let s=t<p.slowUntil?2.6:p.speed;
+  let dx=0,dy=0;
+
+  if(p.controls==="wasd"){
+    if(keys.w)dy--;
+    if(keys.s)dy++;
+    if(keys.a)dx--;
+    if(keys.d)dx++;
+    if(keys.f)shoot(p,t);
+  }else{
+    if(keys.ArrowUp)dy--;
+    if(keys.ArrowDown)dy++;
+    if(keys.ArrowLeft)dx--;
+    if(keys.ArrowRight)dx++;
+    if(keys.j)shoot(p,t);
+  }
+  p.x+=dx*s;p.y+=dy*s;
+  p.x=Math.max(20,Math.min(c.width-20,p.x));
+  p.y=Math.max(80,Math.min(c.height-20,p.y));
+}
+
+function checkTag(t){
+  if(t<tagCooldownUntil) return;
+  if(Math.hypot(p1.x-p2.x,p1.y-p2.y)<28){
+    itPlayer=itPlayer===p1?p2:p1;
+    tagCooldownUntil=t+500;
+    glitchUntil=t+150;
+    shakeUntil=t+150; shakeIntensity=6;
+  }
+}
+
+function shoot(p,t){
+  if(t-p.lastShot<5000) return;
+  p.lastShot=t;
+  const target=p===p1?p2:p1;
+  const a=Math.atan2(target.y-p.y,target.x-p.x);
+  bullets.push({x:p.x,y:p.y,vx:Math.cos(a)*6,vy:Math.sin(a)*6,owner:p});
+}
+
+function updateBullets(t){
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i];
+    b.x+=b.vx;b.y+=b.vy;
+    const target=b.owner===p1?p2:p1;
+    if(Math.hypot(b.x-target.x,b.y-target.y)<14){
+      target.slowUntil=t+3000;
+      bullets.splice(i,1);
+      continue;
+    }
+    if(b.x<0||b.y<80||b.x>c.width||b.y>c.height){ bullets.splice(i,1); continue; }
+
+    // energy ball
+    let grad = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,6);
+    grad.addColorStop(0,"#ffffff");
+    grad.addColorStop(0.4,"#ff9999");
+    grad.addColorStop(1,"rgba(255,0,0,0)");
+    ctx.fillStyle=grad;
+    ctx.shadowBlur=14; ctx.shadowColor="#ff5555";
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,6,0,Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur=0;
+  }
+}
+
+function updateTimer(t){
+  const left=Math.max(0,ROUND_TIME-(t-gameStart));
+  timer.textContent="Time: "+Math.ceil(left/1000);
+  if(left<=0&&!gameOver){
+    gameOver=true;
+    const w=itPlayer===p1?p2:p1;
+    scores[w.name]++;
+    winner.textContent=w.name.toUpperCase()+" WINS";
+    restart.style.display="block";
+    // generate multiple win texts
+    winTexts=[];
+    for(let i=0;i<12;i++){
+      winTexts.push({
+        text:Math.random()<0.5?"tanzania":"bhindi roti",
+        x:Math.random()*c.width,
+        y:80+Math.random()*(c.height-80),
+        alpha:0.05+Math.random()*0.05,
+        size:12+Math.random()*6
+      });
+    }
+  }
+  score.textContent=`AARAV ${scores.aarav}  |  JAIN ${scores.jain}`;
+}
+
+/* ---------- DRAW ---------- */
+function drawPlayers(t){
+  ctx.font="32px Satoshi, monospace";
+  [p1,p2].forEach(p=>{
+    const base=p===itPlayer?"#ff3333":"#ffffff";
+    const glow=p===itPlayer?30:14;
+    const dx=p.x-p.px,dy=p.y-p.py;
+    for(let i=1;i<=3;i++){
+      ctx.globalAlpha=0.12/i;
+      ctx.fillStyle=base;
+      ctx.fillText(p.name,p.x-dx*i-22,p.y-dy*i+6);
+    }
+    ctx.globalAlpha=1;
+    if(t<glitchUntil){ drawRGBText(p.name,p.x,p.y); }
+    else{
+      ctx.shadowBlur=glow; ctx.shadowColor=base;
+      ctx.fillStyle=base;
+      ctx.fillText(p.name,p.x-22,p.y+6);
+      ctx.shadowBlur=0;
+    }
+  });
+}
+
+function drawRGBText(text,x,y){
+  ctx.fillStyle="rgba(255,0,0,0.9)"; ctx.fillText(text,x-22+2,y+6);
+  ctx.fillStyle="rgba(0,255,0,0.25)"; ctx.fillText(text,x-22,y+6);
+  ctx.fillStyle="rgba(0,200,255,0.6)"; ctx.fillText(text,x-22-2,y+6);
+}
+
+function drawScreenRGB(t){ if(t>glitchUntil) return; ctx.globalAlpha=0.06; ctx.drawImage(c,2,0); ctx.drawImage(c,-2,0); ctx.globalAlpha=1; }
+
+/* ---------- WIN TEXTS ---------- */
+function drawWinTexts(t){
+  if(!gameOver) return;
+  winTexts.forEach(w=>{
+    ctx.globalAlpha=w.alpha+Math.sin(t*0.02)*0.03;
+    ctx.font=`${w.size}px Satoshi, monospace`;
+    ctx.fillStyle="#ff4444";
+    ctx.fillText(w.text,w.x,w.y);
+  });
+  ctx.globalAlpha=1;
+}
+
+/* ---------- PARTICLES ---------- */
+function drawParticles(){
+  for(const p of particles){
+    let fx=0,fy=0;
+    [p1,p2].forEach(pl=>{
+      const dx=p.x-pl.x, dy=p.y-pl.y;
+      const d=Math.hypot(dx,dy);
+      if(d<140){ const f=(140-d)/140; fx+=dx/d*f*0.5; fy+=dy/d*f*0.5; }
+    });
+    p.vx=(p.vx+fx)*0.9; p.vy=(p.vy+fy)*0.9;
+    p.x+=p.vx; p.y+=p.vy;
+    p.x+=(p.bx-p.x)*0.01; p.y+=(p.by-p.y)*0.01;
+    const glow=Math.min(1,Math.hypot(p.vx,p.vy)*2);
+    ctx.fillStyle=`rgba(255,0,0,${0.12+glow*0.25})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r+glow*1.5,0,Math.PI*2); ctx.fill();
+  }
+}
+
+function drawGrid(){
+  ctx.strokeStyle="rgba(255,0,0,0.05)";
+  for(let x=0;x<c.width;x+=70){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}
+  for(let y=80;y<c.height;y+=70){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}
+}
+</script>
+</body>
+</html>
