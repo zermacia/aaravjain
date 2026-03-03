@@ -147,6 +147,23 @@ let shakeUntil=0;
 let shakeIntensity=0;
 let mode=null;
 
+/* ---------- PLAYER IMAGES ---------- */
+const playerImages = {
+  aarav: {
+    safe: new Image(),
+    it: new Image()
+  },
+  jain: {
+    safe: new Image(),
+    it: new Image()
+  }
+};
+
+playerImages.aarav.safe.src = "aarav_safe.png";
+playerImages.aarav.it.src   = "aarav_it.png";
+playerImages.jain.safe.src  = "jain_safe.png";
+playerImages.jain.it.src    = "jain_it.png";
+
 const ROUND_TIME=30000;
 const scores={aarav:0,jain:0};
 
@@ -369,19 +386,24 @@ function updateTimer(t){
 
 /* ---------- DRAW ---------- */
 function drawPlayers(t){
-  ctx.font="32px Satoshi, monospace";
   [p1,p2].forEach(p=>{
     if(!p) return;
+
     const isIt = (p === itPlayer);
-    const base=isIt?"#ff3333":"#ffffff";
-    const glow=isIt?30:14;
-    const dx=p.x-p.px, dy=p.y-p.py;
+    const baseGlow = isIt ? "#ff3333" : "#ffffff";
+    const glow = isIt ? 30 : 14;
+    const dx = p.x - p.px;
+    const dy = p.y - p.py;
 
-    // Centering calculation
-    const textWidth = ctx.measureText(p.name).width;
-    const centerX = p.x - (textWidth / 2);
+    const imgSet = playerImages[p.name];
+    const img = isIt ? imgSet.it : imgSet.safe;
 
-    // Draw Arrow (Rounded, Lower Opacity, Glow)
+    const baseSize = 72;
+    const size = p.name === "aarav" ? baseSize + 8 : baseSize; // image size
+    const drawX = p.x - size/2;
+    const drawY = p.y - size/2;
+
+    // Arrow (unchanged)
     if(isIt){
       const bounce = Math.sin(t/150)*4;
       ctx.save();
@@ -389,30 +411,44 @@ function drawPlayers(t){
       ctx.shadowColor = "#ffffff";
       ctx.fillStyle = "rgba(255,255,255,0.6)";
       ctx.beginPath();
-      // Draw rounded pointer
-      ctx.roundRect(p.x - 4, p.y - 60 + bounce, 8, 12, 4);
+      ctx.roundRect(p.x - 4, p.y - 70 + bounce, 8, 12, 4);
       ctx.fill();
       ctx.restore();
     }
 
-    // Motion Blur trails (Centered)
+    // Motion Blur Trails
     for(let i=1;i<=3;i++){
-      ctx.globalAlpha=0.12/i;
-      ctx.fillStyle=base;
-      ctx.fillText(p.name, centerX - dx*i, p.y - dy*i + 6);
+      ctx.globalAlpha = 0.12/i;
+      ctx.drawImage(img, drawX - dx*i, drawY - dy*i, size, size);
     }
-    
-    // Main Text (Centered)
-    ctx.globalAlpha=1;
-    if(t<glitchUntil){
-      drawRGBText(p.name, centerX, p.y);
+
+    ctx.globalAlpha = 1;
+
+    // RGB Glitch
+    if(t < glitchUntil){
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(img, drawX+2, drawY, size, size);
+      ctx.globalAlpha = 0.25;
+      ctx.drawImage(img, drawX, drawY, size, size);
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(img, drawX-2, drawY, size, size);
+      ctx.globalAlpha = 1;
     }else{
-      ctx.shadowBlur=glow;
-      ctx.shadowColor=base;
-      ctx.fillStyle=base;
-      ctx.fillText(p.name, centerX, p.y + 6);
-      ctx.shadowBlur=0;
-    }
+
+  // Increase size slightly
+  const baseSize = 72; // overall increase from 64
+  const finalSize = p.name === "aarav" ? baseSize + 8 : baseSize;
+
+  const newDrawX = p.x - finalSize/2;
+  const newDrawY = p.y - finalSize/2;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  ctx.drawImage(img, newDrawX, newDrawY, finalSize, finalSize);
+
+  ctx.restore();
+}
   });
 }
 
