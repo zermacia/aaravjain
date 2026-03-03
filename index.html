@@ -35,30 +35,80 @@ canvas{display:block}
 #menu{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.85);
+  background:radial-gradient(circle at center, #140000 0%, #000000 70%);
   display:flex;
   align-items:center;
   justify-content:center;
   z-index:20;
 }
+
 #menuBox{
-  border:1px solid #ff4444;
-  padding:30px 40px;
+  position:relative;
+  border:2px solid #ff4444;
+  padding:40px 50px;
   text-align:center;
-  box-shadow:0 0 30px rgba(255,0,0,.5);
+  box-shadow:0 0 40px rgba(255,0,0,.6);
+  background:rgba(10,0,0,0.9);
+  min-width:320px;
 }
+
 #menuBox h1{
   color:#ff5555;
-  margin-bottom:20px;
+  margin-bottom:25px;
+  letter-spacing:2px;
 }
+
 .menuBtn{
   display:block;
-  margin:10px auto;
-  padding:10px 30px;
+  width:100%;
+  margin:12px 0;
+  padding:12px 0;
   background:#120000;
   border:1px solid #ff4444;
   color:#ff7777;
   cursor:pointer;
+  font-size:15px;
+  transition:0.2s ease;
+}
+
+.menuBtn:hover{
+  background:#220000;
+  box-shadow:0 0 15px rgba(255,0,0,.6);
+}
+
+#gameCodeInput{
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  background:#0d0000;
+  border:1px solid #ff4444;
+  color:#ff8888;
+  text-align:center;
+  font-size:14px;
+  outline:none;
+}
+
+#gameCodeDisplay{
+  margin-top:15px;
+  font-size:14px;
+  color:#ff9999;
+  letter-spacing:2px;
+}
+
+#backArrow{
+  position:absolute;
+  top:18px;
+  left:18px;
+  font-size:26px;
+  color:#ff6666;
+  cursor:pointer;
+  user-select:none;
+  transition:0.2s ease;
+}
+
+#backArrow:hover{
+  transform:translateX(-4px);
+  text-shadow:0 0 12px rgba(255,80,80,.8);
 }
 
 /* ---------- END ---------- */
@@ -93,9 +143,34 @@ canvas{display:block}
 
 <div id="menu">
   <div id="menuBox">
-    <h1>Jainism Game</h1>
-    <button class="menuBtn" onclick="startMode('pvp')">1v1 LOCAL</button>
-    <button class="menuBtn" onclick="startMode('ai')">VS COMPUTER</button>
+
+    <!-- MAIN MENU -->
+    <div id="mainMenu">
+      <h1>Jainism Game</h1>
+      <button class="menuBtn" onclick="startMode('pvp')">1v1 LOCAL</button>
+      <button class="menuBtn" onclick="startMode('ai')">VS COMPUTER</button>
+      <button class="menuBtn" id="onlineBtn">ONLINE</button>
+    </div>
+
+    <!-- ONLINE MENU -->
+    <div id="onlineMenu" style="display:none;">
+
+      <div id="backArrow">&#8592;</div>
+
+      <h1>Online Mode</h1>
+      <button class="menuBtn" id="createGameBtn">CREATE GAME</button>
+      <input type="text" id="gameCodeInput" placeholder="ENTER GAME CODE">
+      <button class="menuBtn" id="joinGameBtn">JOIN GAME</button>
+
+    </div>
+
+    <!-- WAITING SCREEN -->
+    <div id="waitingScreen" style="display:none;">
+      <h1>Game Code</h1>
+      <div id="generatedCode" style="font-size:28px; color:#ff6666; margin-bottom:20px;"></div>
+      <div style="color:#ffaaaa;">Waiting for player...</div>
+    </div>
+
   </div>
 </div>
 
@@ -109,7 +184,14 @@ canvas{display:block}
 <button id="restart">RESTART</button>
 <canvas id="c"></canvas>
 
+<script src="/socket.io/socket.io.js"></script>
+
 <script>
+
+  const socket = io();
+
+  let currentRoom = null;
+  let isOnline = false;
 /* ---------- CANVAS ---------- */
 const c=document.getElementById("c");
 const ctx=c.getContext("2d");
@@ -243,6 +325,13 @@ function updatePlayer(p,t){
     if(keys.a)dx--;
     if(keys.d)dx++;
     if(keys.f)shoot(p,t);
+    if (isOnline && currentRoom) {
+      socket.emit("playerMove", {
+        code: currentRoom,
+        x: p.x,
+      y: p.y
+  });
+}
   }else{
     if(keys.ArrowUp)dy--;
     if(keys.ArrowDown)dy++;
@@ -504,6 +593,67 @@ function drawGrid(){
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(c.width,y); ctx.stroke();
   }
 }
+const mainMenu = document.getElementById("mainMenu");
+const onlineMenu = document.getElementById("onlineMenu");
+const waitingScreen = document.getElementById("waitingScreen");
+
+const onlineBtn = document.getElementById("onlineBtn");
+const backArrow = document.getElementById("backArrow");
+const createGameBtn = document.getElementById("createGameBtn");
+const joinGameBtn = document.getElementById("joinGameBtn");
+const gameCodeInput = document.getElementById("gameCodeInput");
+const generatedCode = document.getElementById("generatedCode");
+
+function showMainMenu() {
+  mainMenu.style.display = "block";
+  onlineMenu.style.display = "none";
+  waitingScreen.style.display = "none";
+}
+
+function showOnlineMenu() {
+  mainMenu.style.display = "none";
+  onlineMenu.style.display = "block";
+  waitingScreen.style.display = "none";
+}
+
+function showWaitingScreen(code) {
+  mainMenu.style.display = "none";
+  onlineMenu.style.display = "none";
+  waitingScreen.style.display = "block";
+  generatedCode.textContent = code;
+}
+
+onlineBtn.onclick = showOnlineMenu;
+backArrow.onclick = showMainMenu;
+
+createGameBtn.onclick = () => {
+  const code = Math.floor(10000 + Math.random() * 90000).toString();
+  currentRoom = code;
+  isOnline = true;
+
+  socket.emit("createRoom", code);
+
+  showWaitingScreen(code);
+};
+
+joinGameBtn.onclick = () => {
+  const code = gameCodeInput.value.trim();
+  if (code.length === 5) {
+    currentRoom = code;
+    isOnline = true;
+
+    socket.emit("joinRoom", code);
+
+    showWaitingScreen(code);
+  }
+};
+socket.on("startGame", () => {
+  document.getElementById("menu").style.display = "none";
+});
+socket.on("opponentMove", (data) => {
+  opponent.x = data.x;
+  opponent.y = data.y;
+});
 </script>
 </body>
 </html>
