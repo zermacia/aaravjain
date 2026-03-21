@@ -192,6 +192,7 @@ canvas{display:block}
 
   let currentRoom = null;
   let isOnline = false;
+  let isHost = false;
 /* ---------- CANVAS ---------- */
 const c=document.getElementById("c");
 const ctx=c.getContext("2d");
@@ -630,56 +631,13 @@ createGameBtn.onclick = () => {
   const code = Math.floor(10000 + Math.random() * 90000).toString();
   currentRoom = code;
   isOnline = true;
-
-  socket.emit("createRoom", code);
-
-  showWaitingScreen(code);
-};
-
-joinGameBtn.onclick = () => {
-  const code = gameCodeInput.value.trim();
-  if (code.length === 5) {
-    currentRoom = code;
-    isOnline = true;
-
-    socket.emit("joinRoom", code);
-
-    showWaitingScreen(code);
-  }
-};
-socket.on("startGame", () => {
-  document.getElementById("menu").style.display = "none";
-});
-socket.on("opponentMove", (data) => {
-  if (!p1 || !p2) return;
-
-  // Assume YOU control p1 → opponent is p2
-  p2.x = data.x;
-  p2.y = data.y;
-});
-</script>
-</body>
-</html>
-
-/* ================= MULTIPLAYER FIX PATCH ================= */
-
-// ensure host variable exists
-if (typeof isHost === "undefined") {
-  var isHost = false;
-}
-
-// override create button
-createGameBtn.onclick = () => {
-  const code = Math.floor(10000 + Math.random() * 90000).toString();
-  currentRoom = code;
-  isOnline = true;
   isHost = true;
 
   socket.emit("createRoom", code);
+
   showWaitingScreen(code);
 };
 
-// override join button
 joinGameBtn.onclick = () => {
   const code = gameCodeInput.value.trim();
   if (code.length === 5) {
@@ -688,19 +646,14 @@ joinGameBtn.onclick = () => {
     isHost = false;
 
     socket.emit("joinRoom", code);
+
     showWaitingScreen(code);
   }
 };
-
-// fix startGame
-socket.off("startGame"); // remove old broken listener
 socket.on("startGame", () => {
   document.getElementById("menu").style.display = "none";
   startMode("online");
 });
-
-// fix opponent movement
-socket.off("opponentMove"); // remove old broken listener
 socket.on("opponentMove", (data) => {
   if (!p1 || !p2) return;
 
@@ -712,3 +665,6 @@ socket.on("opponentMove", (data) => {
     p1.y = data.y;
   }
 });
+</script>
+</body>
+</html>
