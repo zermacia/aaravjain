@@ -184,7 +184,7 @@ canvas{display:block}
 <button id="restart">RESTART</button>
 <canvas id="c"></canvas>
 
-<script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 
 <script>
 
@@ -192,7 +192,6 @@ canvas{display:block}
 
   let currentRoom = null;
   let isOnline = false;
-  let isHost = false;
 /* ---------- CANVAS ---------- */
 const c=document.getElementById("c");
 const ctx=c.getContext("2d");
@@ -222,7 +221,6 @@ function Player(x,y,name,controls,isAI=false){
 }
 
 let p1,p2,itPlayer;
-let mode = null;
 let bullets=[];
 let gameStart=0,gameOver=false;
 let tagCooldownUntil=0;
@@ -632,7 +630,6 @@ createGameBtn.onclick = () => {
   const code = Math.floor(10000 + Math.random() * 90000).toString();
   currentRoom = code;
   isOnline = true;
-  isHost = true;
 
   socket.emit("createRoom", code);
 
@@ -644,7 +641,6 @@ joinGameBtn.onclick = () => {
   if (code.length === 5) {
     currentRoom = code;
     isOnline = true;
-    isHost = false;
 
     socket.emit("joinRoom", code);
 
@@ -652,20 +648,11 @@ joinGameBtn.onclick = () => {
   }
 };
 socket.on("startGame", () => {
-  mode = "online";        // set mode manually
   document.getElementById("menu").style.display = "none";
-  startGame();            // directly start game
 });
 socket.on("opponentMove", (data) => {
-  if (!p1 || !p2) return;
-
-  if (isHost) {
-    p2.x = data.x;
-    p2.y = data.y;
-  } else {
-    p1.x = data.x;
-    p1.y = data.y;
-  }
+  opponent.x = data.x;
+  opponent.y = data.y;
 });
 </script>
 </body>
