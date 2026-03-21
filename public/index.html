@@ -651,8 +651,11 @@ socket.on("startGame", () => {
   document.getElementById("menu").style.display = "none";
 });
 socket.on("opponentMove", (data) => {
-  opponent.x = data.x;
-  opponent.y = data.y;
+  if (!p1 || !p2) return;
+
+  // Assume YOU control p1 → opponent is p2
+  p2.x = data.x;
+  p2.y = data.y;
 });
 </script>
 </body>
