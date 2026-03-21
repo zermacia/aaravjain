@@ -228,6 +228,7 @@ let glitchUntil=0;
 let shakeUntil=0;
 let shakeIntensity=0;
 let mode=null;
+let myRole = null; // Tracks if you are 'p1' or 'p2'
 
 /* ---------- PLAYER IMAGES ---------- */
 const playerImages = {
@@ -315,28 +316,23 @@ requestAnimationFrame(loop);
 
 /* ---------- PLAYER UPDATE ---------- */
 function updatePlayer(p,t){
+  // ONLINE SHIELD: If online, don't let local keys move the other player's character
+  if (mode === "online") {
+    if (myRole === "p1" && p === p2) return;
+    if (myRole === "p2" && p === p1) return;
+  }
+
   p.px=p.x; p.py=p.y;
   let s=t<p.slowUntil?2.6:p.speed;
   let dx=0,dy=0;
 
   if(p.controls==="wasd"){
-    if(keys.w)dy--;
-    if(keys.s)dy++;
-    if(keys.a)dx--;
-    if(keys.d)dx++;
+    if(keys.w)dy--; if(keys.s)dy++;
+    if(keys.a)dx--; if(keys.d)dx++;
     if(keys.f)shoot(p,t);
-    if (isOnline && currentRoom) {
-      socket.emit("playerMove", {
-        code: currentRoom,
-        x: p.x,
-      y: p.y
-  });
-}
-  }else{
-    if(keys.ArrowUp)dy--;
-    if(keys.ArrowDown)dy++;
-    if(keys.ArrowLeft)dx--;
-    if(keys.ArrowRight)dx++;
+  } else {
+    if(keys.ArrowUp)dy--; if(keys.ArrowDown)dy++;
+    if(keys.ArrowLeft)dx--; if(keys.ArrowRight)dx++;
     if(keys.j)shoot(p,t);
   }
 
@@ -344,8 +340,16 @@ function updatePlayer(p,t){
   p.y+=dy*s;
   p.x=Math.max(20,Math.min(c.width-20,p.x));
   p.y=Math.max(80,Math.min(c.height-20,p.y));
-}
 
+  // Sync position to the other player if moving
+  if (mode === "online" && currentRoom && (dx !== 0 || dy !== 0)) {
+    socket.emit("playerMove", {
+      code: currentRoom,
+      x: p.x,
+      y: p.y
+    });
+  }
+}
 /* ---------- AI UPDATE ---------- */
 function updateAI(p,t){
   p.px = p.x;
@@ -647,12 +651,21 @@ joinGameBtn.onclick = () => {
     showWaitingScreen(code);
   }
 };
-socket.on("startGame", () => {
+// This tells the game to actually spawn the characters and start
+socket.on("startGame", (assignedRole) => {
+  myRole = assignedRole; // Server should send 'p1' or 'p2'
+  mode = "online";
   document.getElementById("menu").style.display = "none";
+  startGame(); 
 });
+
+// This updates the correct player object when the opponent moves
 socket.on("opponentMove", (data) => {
-  opponent.x = data.x;
-  opponent.y = data.y;
+  let opponent = (myRole === "p1") ? p2 : p1;
+  if (opponent) {
+    opponent.x = data.x;
+    opponent.y = data.y;
+  }
 });
 </script>
 </body>
