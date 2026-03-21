@@ -222,6 +222,7 @@ function Player(x,y,name,controls,isAI=false){
 }
 
 let p1,p2,itPlayer;
+let mode = null;
 let bullets=[];
 let gameStart=0,gameOver=false;
 let tagCooldownUntil=0;
@@ -651,8 +652,9 @@ joinGameBtn.onclick = () => {
   }
 };
 socket.on("startGame", () => {
+  mode = "online";        // set mode manually
   document.getElementById("menu").style.display = "none";
-  startMode("online");
+  startGame();            // directly start game
 });
 socket.on("opponentMove", (data) => {
   if (!p1 || !p2) return;
